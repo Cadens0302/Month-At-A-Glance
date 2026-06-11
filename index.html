@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Month At A Glance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Month At A Glance</p>
+          <h1>Organize the month, create fast, and open every detail full screen.</h1>
+          <p class="hero-copy">
+            A minimal shared calendar with a dedicated calendar tab, a creation
+            tab, and a full overview of everything planned and still to do.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p class="hero-label">Workspace pulse</p>
+          <div class="hero-stats">
+            <div>
+              <span id="event-count">0</span>
+              <p>events</p>
+            </div>
+            <div>
+              <span id="task-count">0</span>
+              <p>tasks</p>
+            </div>
+            <div>
+              <span id="open-count">0</span>
+              <p>to do</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="tab-bar" aria-label="Main views">
+        <button class="tab-button active" data-tab="calendar" type="button">
+          Full Calendar
+        </button>
+        <button class="tab-button" data-tab="create" type="button">
+          Create
+        </button>
+        <button class="tab-button" data-tab="overview" type="button">
+          Everything
+        </button>
+      </nav>
+
+      <main>
+        <section id="tab-calendar" class="tab-panel active">
+          <div class="calendar-fullscreen">
+            <section class="calendar-panel large">
+              <div class="panel-header">
+                <div>
+                  <p class="section-label">Calendar View</p>
+                  <h2 id="month-label">June 2026</h2>
+                </div>
+                <div class="month-controls">
+                  <button id="prev-month" aria-label="Previous month" type="button">←</button>
+                  <button id="today-button" type="button">Today</button>
+                  <button id="next-month" aria-label="Next month" type="button">→</button>
+                </div>
+              </div>
+
+              <div class="weekday-row" aria-hidden="true">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+              </div>
+
+              <div id="calendar-grid" class="calendar-grid fullscreen-grid"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="tab-create" class="tab-panel">
+          <div class="create-layout">
+            <aside class="details-panel">
+              <div class="panel-header stacked">
+                <div>
+                  <p class="section-label">Create Item</p>
+                  <h2 id="selected-date-label">June 1, 2026</h2>
+                </div>
+                <p class="section-note">
+                  Choose a day from the calendar or create directly for the
+                  selected date.
+                </p>
+              </div>
+
+              <form id="item-form" class="item-form">
+                <div class="input-row segmented">
+                  <button type="button" class="type-toggle active" data-type="event">
+                    Event
+                  </button>
+                  <button type="button" class="type-toggle" data-type="task">
+                    Task
+                  </button>
+                </div>
+
+                <label>
+                  Title
+                  <input
+                    id="title-input"
+                    name="title"
+                    type="text"
+                    maxlength="60"
+                    placeholder="Team check-in"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Time
+                  <input id="time-input" name="time" type="time" />
+                </label>
+
+                <label>
+                  Note
+                  <textarea
+                    id="note-input"
+                    name="note"
+                    rows="4"
+                    maxlength="180"
+                    placeholder="Add a small detail for everyone."
+                  ></textarea>
+                </label>
+
+                <button class="primary-button" type="submit">Add to board</button>
+              </form>
+            </aside>
+
+            <section class="details-panel">
+              <div class="panel-header stacked">
+                <div>
+                  <p class="section-label">Selected Day</p>
+                  <h2>Planned items</h2>
+                </div>
+                <p class="section-note">
+                  Click any event or task to open a full screen detail card.
+                </p>
+              </div>
+
+              <div class="list-header">
+                <h3>Items for this day</h3>
+                <span id="selected-count">0 items</span>
+              </div>
+              <div id="selected-items" class="item-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="tab-overview" class="tab-panel">
+          <div class="overview-layout">
+            <section class="sharing-panel">
+              <div class="panel-header stacked">
+                <div>
+                  <p class="section-label">Everything</p>
+                  <h2>What you made and what you still have to do</h2>
+                </div>
+                <p class="section-note">
+                  Review every event, check off tasks, and keep upcoming work in one place.
+                </p>
+              </div>
+
+              <div class="overview-summaries">
+                <div class="summary-card">
+                  <p class="summary-label">Upcoming</p>
+                  <h3 id="upcoming-count">0 items</h3>
+                </div>
+                <div class="summary-card">
+                  <p class="summary-label">Completed</p>
+                  <h3 id="completed-count">0 tasks</h3>
+                </div>
+              </div>
+
+              <div class="overview-block">
+                <div class="feed-header">
+                  <h3>All items</h3>
+                  <button id="clear-board" class="text-button" type="button">
+                    Clear all
+                  </button>
+                </div>
+                <div id="all-items" class="shared-feed"></div>
+              </div>
+            </section>
+
+            <aside class="sharing-panel">
+              <div class="panel-header stacked">
+                <div>
+                  <p class="section-label">Sharing</p>
+                  <h2>Instant updates</h2>
+                </div>
+                <p class="section-note">
+                  Keep a ready-to-send summary for the selected day.
+                </p>
+              </div>
+
+              <div class="share-card">
+                <p class="share-title">Share today’s plan</p>
+                <p id="share-preview" class="share-preview">
+                  Nothing shared yet. Add an event or task to start the feed.
+                </p>
+                <div class="share-actions">
+                  <button id="copy-share" class="secondary-button" type="button">
+                    Copy Summary
+                  </button>
+                  <button id="native-share" class="secondary-button" type="button">
+                    Share
+                  </button>
+                </div>
+              </div>
+
+              <div class="overview-block">
+                <div class="feed-header">
+                  <h3>Recent shares</h3>
+                </div>
+                <div id="shared-feed" class="shared-feed"></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="detail-modal" class="detail-modal" aria-hidden="true">
+      <div class="detail-backdrop" data-close-modal="true"></div>
+      <article class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+        <button id="close-modal" class="close-modal" type="button" aria-label="Close detail view">
+          &times;
+        </button>
+        <p id="detail-type" class="section-label"></p>
+        <h2 id="detail-title">Item title</h2>
+        <p id="detail-date" class="detail-meta"></p>
+        <p id="detail-time" class="detail-meta"></p>
+        <p id="detail-note" class="detail-note"></p>
+        <div class="detail-actions">
+          <button id="detail-toggle-task" class="secondary-button hidden" type="button">
+            Mark complete
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
