@@ -3,28 +3,42 @@ const calendarGrid = document.getElementById("calendar-grid");
 const selectedDateLabel = document.getElementById("selected-date-label");
 const selectedItems = document.getElementById("selected-items");
 const selectedCount = document.getElementById("selected-count");
+const toggleBulkSendButton = document.getElementById("toggle-bulk-send");
+const copyBulkLinkButton = document.getElementById("copy-bulk-link");
 const itemForm = document.getElementById("item-form");
 const titleInput = document.getElementById("title-input");
+const dateInput = document.getElementById("date-input");
 const timeInput = document.getElementById("time-input");
+const endTimeInput = document.getElementById("end-time-input");
 const noteInput = document.getElementById("note-input");
 const sharePreview = document.getElementById("share-preview");
 const sharedFeed = document.getElementById("shared-feed");
 const allItems = document.getElementById("all-items");
 const copyShareButton = document.getElementById("copy-share");
 const nativeShareButton = document.getElementById("native-share");
-const clearBoardButton = document.getElementById("clear-board");
 const eventCount = document.getElementById("event-count");
 const taskCount = document.getElementById("task-count");
 const openCount = document.getElementById("open-count");
 const upcomingCount = document.getElementById("upcoming-count");
 const completedCount = document.getElementById("completed-count");
 const detailModal = document.getElementById("detail-modal");
+const detailView = document.getElementById("detail-view");
 const detailType = document.getElementById("detail-type");
 const detailTitle = document.getElementById("detail-title");
 const detailDate = document.getElementById("detail-date");
 const detailTime = document.getElementById("detail-time");
 const detailNote = document.getElementById("detail-note");
+const detailSendItem = document.getElementById("detail-send-item");
+const detailEditItem = document.getElementById("detail-edit-item");
 const detailToggleTask = document.getElementById("detail-toggle-task");
+const detailDeleteItem = document.getElementById("detail-delete-item");
+const detailEditForm = document.getElementById("detail-edit-form");
+const detailTitleInput = document.getElementById("detail-title-input");
+const detailDateInput = document.getElementById("detail-date-input");
+const detailTimeInput = document.getElementById("detail-time-input");
+const detailEndTimeInput = document.getElementById("detail-end-time-input");
+const detailNoteInput = document.getElementById("detail-note-input");
+const detailCancelEdit = document.getElementById("detail-cancel-edit");
 
 const STORAGE_KEY = "month-at-a-glance-board";
 const today = new Date();
@@ -37,13 +51,20 @@ const state = {
   activeTab: "calendar",
   items: loadItems(),
   activeDetailId: null,
+  isEditingDetail: false,
+  detailEditType: "event",
+  bulkSendMode: false,
+  selectedShareIds: [],
 };
 
 seedItems();
+hydrateSharedItemsFromUrl();
 bindControls();
 render();
 
 function bindControls() {
+  dateInput.value = state.selectedDate;
+
   document.getElementById("prev-month").addEventListener("click", () => {
     state.currentMonth = new Date(
       state.currentMonth.getFullYear(),
@@ -82,16 +103,64 @@ function bindControls() {
     });
   });
 
+  dateInput.addEventListener("change", () => {
+    if (!dateInput.value) {
+      return;
+    }
+    state.selectedDate = dateInput.value;
+    const selected = parseDateKey(state.selectedDate);
+    state.currentMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+    render();
+  });
+
+  toggleBulkSendButton.addEventListener("click", () => {
+    state.bulkSendMode = !state.bulkSendMode;
+    if (!state.bulkSendMode) {
+      state.selectedShareIds = [];
+    } else {
+      syncSelectedShareIds();
+    }
+    renderSelectedDay();
+  });
+
+  copyBulkLinkButton.addEventListener("click", async () => {
+    const selected = getBulkShareItems();
+    if (selected.length === 0) {
+      copyBulkLinkButton.textContent = "Select items";
+      window.setTimeout(() => {
+        copyBulkLinkButton.textContent = "Copy Link";
+      }, 1400);
+      return;
+    }
+
+    const link = createShareLink(selected);
+    const copied = await copyText(link);
+    copyBulkLinkButton.textContent = copied ? "Copied" : "Link ready";
+    window.setTimeout(() => {
+      copyBulkLinkButton.textContent = "Copy Link";
+    }, 1400);
+  });
+
   itemForm.addEventListener("submit", (event) => {
     event.preventDefault();
 
     const title = titleInput.value.trim();
     const note = noteInput.value.trim();
     const time = timeInput.value;
+    const endTime = endTimeInput.value;
+    const date = dateInput.value || state.selectedDate;
 
     if (!title) {
       return;
     }
+
+    if (time && endTime && endTime <= time) {
+      endTimeInput.setCustomValidity("End time must be after start time.");
+      endTimeInput.reportValidity();
+      return;
+    }
+
+    endTimeInput.setCustomValidity("");
 
     const newItem = {
       id: crypto.randomUUID(),
@@ -99,7 +168,8 @@ function bindControls() {
       title,
       note,
       time,
-      date: state.selectedDate,
+      endTime,
+      date,
       done: false,
       sharedAt: new Date().toISOString(),
     };
@@ -107,6 +177,8 @@ function bindControls() {
     state.items.unshift(newItem);
     persistItems();
     itemForm.reset();
+    state.selectedDate = date;
+    dateInput.value = state.selectedDate;
     state.activeTab = "overview";
     render();
   });
@@ -143,19 +215,94 @@ function bindControls() {
     }
   });
 
-  clearBoardButton.addEventListener("click", () => {
-    state.items = [];
-    state.activeDetailId = null;
-    persistItems();
-    closeModal();
-    render();
-  });
-
   detailToggleTask.addEventListener("click", () => {
     if (!state.activeDetailId) {
       return;
     }
     toggleTask(state.activeDetailId);
+  });
+
+  detailEditItem.addEventListener("click", () => {
+    if (!state.activeDetailId) {
+      return;
+    }
+    openDetailEditor();
+  });
+
+  detailSendItem.addEventListener("click", async () => {
+    const item = state.items.find((entry) => entry.id === state.activeDetailId);
+    if (!item) {
+      return;
+    }
+
+    const copied = await copyText(createShareLink([item]));
+    detailSendItem.textContent = copied ? "Copied" : "Link ready";
+    window.setTimeout(() => {
+      detailSendItem.textContent = "Send";
+    }, 1400);
+  });
+
+  detailDeleteItem.addEventListener("click", () => {
+    if (!state.activeDetailId) {
+      return;
+    }
+    deleteItem(state.activeDetailId);
+  });
+
+  document.querySelectorAll(".detail-type-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.detailEditType = button.dataset.type;
+      renderDetailTypeToggle();
+    });
+  });
+
+  detailEditForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const item = state.items.find((entry) => entry.id === state.activeDetailId);
+    if (!item) {
+      return;
+    }
+
+    const title = detailTitleInput.value.trim();
+    const date = detailDateInput.value;
+    const time = detailTimeInput.value;
+    const endTime = detailEndTimeInput.value;
+    const note = detailNoteInput.value.trim();
+
+    if (!title) {
+      return;
+    }
+
+    if (time && endTime && endTime <= time) {
+      detailEndTimeInput.setCustomValidity("End time must be after start time.");
+      detailEndTimeInput.reportValidity();
+      return;
+    }
+
+    detailEndTimeInput.setCustomValidity("");
+
+    item.type = state.detailEditType;
+    if (item.type !== "task") {
+      item.done = false;
+    }
+    item.title = title;
+    item.date = date;
+    item.time = time;
+    item.endTime = endTime;
+    item.note = note;
+
+    state.selectedDate = date;
+    const selectedDate = parseDateKey(date);
+    state.currentMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    state.isEditingDetail = false;
+    persistItems();
+    render();
+  });
+
+  detailCancelEdit.addEventListener("click", () => {
+    state.isEditingDetail = false;
+    renderDetailModal();
   });
 
   document.getElementById("close-modal").addEventListener("click", closeModal);
@@ -197,6 +344,12 @@ function renderTabs() {
 function renderTypeToggle() {
   document.querySelectorAll(".type-toggle").forEach((button) => {
     button.classList.toggle("active", button.dataset.type === state.activeType);
+  });
+}
+
+function renderDetailTypeToggle() {
+  document.querySelectorAll(".detail-type-toggle").forEach((button) => {
+    button.classList.toggle("active", button.dataset.type === state.detailEditType);
   });
 }
 
@@ -280,12 +433,16 @@ function renderMonth() {
 function renderSelectedDay() {
   const items = getItemsForDate(state.selectedDate);
   const date = parseDateKey(state.selectedDate);
+  syncSelectedShareIds();
+  dateInput.value = state.selectedDate;
   selectedDateLabel.textContent = date.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   });
   selectedCount.textContent = `${items.length} ${items.length === 1 ? "item" : "items"}`;
+  toggleBulkSendButton.textContent = state.bulkSendMode ? "Cancel Send" : "Send Multiple";
+  copyBulkLinkButton.classList.toggle("hidden", !state.bulkSendMode);
 
   if (items.length === 0) {
     selectedItems.innerHTML = `
@@ -303,7 +460,18 @@ function renderSelectedDay() {
         <article class="item-card clickable ${item.type} ${completedClass}" data-open-id="${item.id}">
           <div class="item-top">
             <span class="item-badge">${item.type === "task" && item.done ? "done" : item.type}</span>
-            <span class="item-meta">${item.time ? formatTime(item.time) : "Anytime"}</span>
+            <div class="card-actions">
+              ${state.bulkSendMode
+                ? `<label class="share-check">
+                    <input type="checkbox" data-share-id="${item.id}" ${state.selectedShareIds.includes(item.id) ? "checked" : ""} />
+                    <span>Include</span>
+                  </label>`
+                : ""}
+              <span class="item-meta">${formatTimeRange(item)}</span>
+              <button class="delete-item-button" type="button" data-delete-id="${item.id}" aria-label="Delete ${escapeHtml(item.title)}">
+                Delete
+              </button>
+            </div>
           </div>
           <h4>${escapeHtml(item.title)}</h4>
           <p class="item-note">${item.note ? escapeHtml(item.note) : "Shared with the board for quick visibility."}</p>
@@ -312,6 +480,8 @@ function renderSelectedDay() {
     })
     .join("");
 
+  bindDeleteButtons(selectedItems);
+  bindShareCheckboxes();
   bindOpenDetails(selectedItems);
 }
 
@@ -344,7 +514,7 @@ function renderSharedFeed() {
             <h4>${escapeHtml(item.title)}</h4>
             <span class="item-badge">${badge}</span>
           </div>
-          <p class="feed-meta">${date}${item.time ? ` at ${formatTime(item.time)}` : ""}</p>
+          <p class="feed-meta">${date}${item.time ? ` at ${formatTimeRange(item)}` : ""}</p>
           <p class="item-note">${item.note ? escapeHtml(item.note) : "Ready to share with the team."}</p>
         </article>
       `;
@@ -393,7 +563,12 @@ function renderOverview() {
                 <span class="item-badge">${badge}</span>
                 <h4>${escapeHtml(item.title)}</h4>
               </div>
-              <span class="item-meta">${prettyDate}${item.time ? ` · ${formatTime(item.time)}` : ""}</span>
+              <div class="card-actions">
+                <span class="item-meta">${prettyDate}${item.time ? ` · ${formatTimeRange(item)}` : ""}</span>
+                <button class="delete-item-button" type="button" data-delete-id="${item.id}" aria-label="Delete ${escapeHtml(item.title)}">
+                  Delete
+                </button>
+              </div>
             </div>
             <p class="item-note">${item.note ? escapeHtml(item.note) : "No extra details added yet."}</p>
           </div>
@@ -409,6 +584,7 @@ function renderOverview() {
     });
   });
 
+  bindDeleteButtons(allItems);
   bindOpenDetails(allItems);
 }
 
@@ -429,6 +605,7 @@ function renderDetailModal() {
     detailModal.classList.remove("open");
     detailModal.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
+    state.isEditingDetail = false;
     return;
   }
 
@@ -440,14 +617,29 @@ function renderDetailModal() {
     day: "numeric",
     year: "numeric",
   });
-  detailTime.textContent = item.time ? `Time: ${formatTime(item.time)}` : "Time: Anytime";
+  detailTime.textContent = `Time: ${formatTimeRange(item)}`;
   detailNote.textContent = item.note || "No extra note was added for this item.";
+  detailView.classList.toggle("hidden", state.isEditingDetail);
+  detailEditForm.classList.toggle("hidden", !state.isEditingDetail);
+  detailSendItem.classList.toggle("hidden", state.isEditingDetail);
+  detailEditItem.classList.toggle("hidden", state.isEditingDetail);
 
   if (item.type === "task") {
     detailToggleTask.classList.remove("hidden");
     detailToggleTask.textContent = item.done ? "Mark incomplete" : "Mark complete";
   } else {
     detailToggleTask.classList.add("hidden");
+  }
+
+  if (state.isEditingDetail) {
+    detailTitleInput.value = item.title;
+    detailDateInput.value = item.date;
+    detailTimeInput.value = item.time || "";
+    detailEndTimeInput.value = item.endTime || "";
+    detailNoteInput.value = item.note || "";
+    detailEndTimeInput.setCustomValidity("");
+    state.detailEditType = item.type;
+    renderDetailTypeToggle();
   }
 
   detailModal.classList.add("open");
@@ -459,7 +651,17 @@ function bindOpenDetails(container) {
   container.querySelectorAll("[data-open-id]").forEach((card) => {
     card.addEventListener("click", () => {
       state.activeDetailId = card.dataset.openId;
+      state.isEditingDetail = false;
       renderDetailModal();
+    });
+  });
+}
+
+function bindDeleteButtons(container) {
+  container.querySelectorAll("[data-delete-id]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      deleteItem(button.dataset.deleteId);
     });
   });
 }
@@ -477,7 +679,65 @@ function toggleTask(itemId) {
 
 function closeModal() {
   state.activeDetailId = null;
+  state.isEditingDetail = false;
   renderDetailModal();
+}
+
+function deleteItem(itemId) {
+  state.items = state.items.filter((entry) => entry.id !== itemId);
+  if (state.activeDetailId === itemId) {
+    state.activeDetailId = null;
+    state.isEditingDetail = false;
+  }
+  persistItems();
+  render();
+}
+
+function openDetailEditor() {
+  const item = state.items.find((entry) => entry.id === state.activeDetailId);
+  if (!item) {
+    return;
+  }
+  state.isEditingDetail = true;
+  state.detailEditType = item.type;
+  renderDetailModal();
+}
+
+function bindShareCheckboxes() {
+  selectedItems.querySelectorAll(".share-check").forEach((label) => {
+    label.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  });
+
+  selectedItems.querySelectorAll("[data-share-id]").forEach((input) => {
+    input.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        if (!state.selectedShareIds.includes(input.dataset.shareId)) {
+          state.selectedShareIds.push(input.dataset.shareId);
+        }
+      } else {
+        state.selectedShareIds = state.selectedShareIds.filter(
+          (itemId) => itemId !== input.dataset.shareId
+        );
+      }
+    });
+  });
+}
+
+function getBulkShareItems() {
+  return getItemsForDate(state.selectedDate).filter((item) =>
+    state.selectedShareIds.includes(item.id)
+  );
+}
+
+function syncSelectedShareIds() {
+  const currentIds = new Set(getItemsForDate(state.selectedDate).map((item) => item.id));
+  state.selectedShareIds = state.selectedShareIds.filter((itemId) => currentIds.has(itemId));
 }
 
 function getItemsForDate(dateKey) {
@@ -522,11 +782,50 @@ function buildShareSummary() {
     .map((item) => {
       const prefix =
         item.type === "task" ? `${item.done ? "Completed task" : "Task"}` : "Event";
-      return `${prefix}: ${item.title}${item.time ? ` at ${formatTime(item.time)}` : ""}`;
+      return `${prefix}: ${item.title}${item.time ? ` at ${formatTimeRange(item)}` : ""}`;
     })
     .join(" | ");
 
   return `Month At A Glance for ${prettyDate}: ${summary}`;
+}
+
+function hydrateSharedItemsFromUrl() {
+  const url = new URL(window.location.href);
+  const encoded = url.searchParams.get("share");
+
+  if (!encoded) {
+    return;
+  }
+
+  const payload = decodeSharePayload(encoded);
+  clearShareParam(url);
+
+  if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
+    return;
+  }
+
+  const importedItems = payload.items
+    .map(normalizeSharedItem)
+    .filter(Boolean);
+
+  if (importedItems.length === 0) {
+    return;
+  }
+
+  const shouldImport = window.confirm(
+    `Add ${importedItems.length} shared ${importedItems.length === 1 ? "item" : "items"} to your board?`
+  );
+
+  if (!shouldImport) {
+    return;
+  }
+
+  state.items.unshift(...importedItems);
+  state.selectedDate = importedItems[0].date;
+  const selectedDate = parseDateKey(importedItems[0].date);
+  state.currentMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  state.activeTab = "create";
+  persistItems();
 }
 
 function loadItems() {
@@ -554,6 +853,7 @@ function seedItems() {
       title: "Launch planning",
       note: "Quick team sync for the month timeline.",
       time: "09:00",
+      endTime: "10:00",
       date: formatDateKey(today),
       done: false,
       sharedAt: new Date().toISOString(),
@@ -564,6 +864,7 @@ function seedItems() {
       title: "Finalize design review",
       note: "Share updates with the project group.",
       time: "13:30",
+      endTime: "",
       date: formatDateKey(today),
       done: false,
       sharedAt: new Date().toISOString(),
@@ -577,19 +878,80 @@ function normalizeItems() {
   let changed = false;
 
   state.items = state.items.map((item) => {
-    if (typeof item.done === "boolean") {
-      return item;
-    }
-    changed = true;
-    return {
+    const normalized = {
       ...item,
-      done: false,
+      done: typeof item.done === "boolean" ? item.done : false,
+      endTime: typeof item.endTime === "string" ? item.endTime : "",
     };
+
+    if (
+      normalized.done !== item.done ||
+      normalized.endTime !== item.endTime
+    ) {
+      changed = true;
+    }
+
+    return normalized;
   });
 
   if (changed) {
     persistItems();
   }
+}
+
+function createShareLink(items) {
+  const shareItems = items.map((item) => ({
+    type: item.type,
+    title: item.title,
+    note: item.note,
+    time: item.time,
+    endTime: item.endTime,
+    date: item.date,
+    done: item.type === "task" ? item.done : false,
+  }));
+  const payload = encodeSharePayload({
+    createdAt: new Date().toISOString(),
+    items: shareItems,
+  });
+  const url = new URL(window.location.href);
+  url.searchParams.set("share", payload);
+  return url.toString();
+}
+
+function encodeSharePayload(payload) {
+  return window.btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+}
+
+function decodeSharePayload(encoded) {
+  try {
+    return JSON.parse(decodeURIComponent(escape(window.atob(encoded))));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function normalizeSharedItem(item) {
+  if (!item || typeof item.title !== "string" || typeof item.date !== "string") {
+    return null;
+  }
+
+  const type = item.type === "task" ? "task" : "event";
+  return {
+    id: crypto.randomUUID(),
+    type,
+    title: item.title.trim().slice(0, 60) || "Shared item",
+    note: typeof item.note === "string" ? item.note.trim().slice(0, 180) : "",
+    time: typeof item.time === "string" ? item.time : "",
+    endTime: typeof item.endTime === "string" ? item.endTime : "",
+    date: item.date,
+    done: type === "task" ? Boolean(item.done) : false,
+    sharedAt: new Date().toISOString(),
+  };
+}
+
+function clearShareParam(url) {
+  url.searchParams.delete("share");
+  window.history.replaceState({}, document.title, url.toString());
 }
 
 function formatDateKey(date) {
@@ -613,6 +975,30 @@ function formatTime(time) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatTimeRange(item) {
+  if (!item.time) {
+    return "Anytime";
+  }
+  if (!item.endTime) {
+    return formatTime(item.time);
+  }
+  return `${formatTime(item.time)} - ${formatTime(item.endTime)}`;
+}
+
+async function copyText(value) {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (_error) {
+    // Fall through to prompt fallback.
+  }
+
+  window.prompt("Copy this link:", value);
+  return false;
 }
 
 function escapeHtml(value) {

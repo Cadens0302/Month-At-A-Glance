@@ -398,6 +398,12 @@ button {
   gap: 14px;
 }
 
+.time-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .item-form label {
   display: flex;
   flex-direction: column;
@@ -438,6 +444,14 @@ button {
   gap: 12px;
 }
 
+.list-actions,
+.detail-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .item-card,
 .feed-card,
 .all-item-card {
@@ -476,6 +490,31 @@ button {
 
 .all-item-top {
   align-items: start;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.share-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.share-check input {
+  margin: 0;
 }
 
 .item-badge {
@@ -554,6 +593,19 @@ button {
   color: var(--muted);
 }
 
+.delete-item-button,
+.detail-delete-button {
+  padding: 0;
+  background: transparent;
+  color: #b35b4f;
+  font-weight: 700;
+}
+
+.delete-item-button:hover,
+.detail-delete-button:hover {
+  color: #8f4439;
+}
+
 .empty-state {
   padding: 22px 18px;
   border: 1px dashed var(--line);
@@ -594,10 +646,14 @@ button {
     linear-gradient(180deg, #fffdfb, #ffffff);
 }
 
-.close-modal {
+.detail-top-actions {
   position: absolute;
   top: 18px;
   right: 18px;
+  z-index: 2;
+}
+
+.close-modal {
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -655,8 +711,14 @@ button {
   .tab-bar,
   .month-controls,
   .share-actions,
-  .detail-actions {
+  .detail-actions,
+  .list-actions,
+  .detail-top-actions {
     flex-wrap: wrap;
+  }
+
+  .time-row {
+    grid-template-columns: 1fr;
   }
 
   .tab-bar {

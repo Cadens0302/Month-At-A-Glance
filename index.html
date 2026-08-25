@@ -122,9 +122,21 @@
                 </label>
 
                 <label>
-                  Time
-                  <input id="time-input" name="time" type="time" />
+                  Date
+                  <input id="date-input" name="date" type="date" required />
                 </label>
+
+                <div class="time-row">
+                  <label>
+                    Start Time
+                    <input id="time-input" name="time" type="time" />
+                  </label>
+
+                  <label>
+                    End Time
+                    <input id="end-time-input" name="end-time" type="time" />
+                  </label>
+                </div>
 
                 <label>
                   Note
@@ -154,7 +166,15 @@
 
               <div class="list-header">
                 <h3>Items for this day</h3>
-                <span id="selected-count">0 items</span>
+                <div class="list-actions">
+                  <button id="toggle-bulk-send" class="secondary-button" type="button">
+                    Send Multiple
+                  </button>
+                  <button id="copy-bulk-link" class="secondary-button hidden" type="button">
+                    Copy Link
+                  </button>
+                  <span id="selected-count">0 items</span>
+                </div>
               </div>
               <div id="selected-items" class="item-list"></div>
             </section>
@@ -188,9 +208,6 @@
               <div class="overview-block">
                 <div class="feed-header">
                   <h3>All items</h3>
-                  <button id="clear-board" class="text-button" type="button">
-                    Clear all
-                  </button>
                 </div>
                 <div id="all-items" class="shared-feed"></div>
               </div>
@@ -237,19 +254,90 @@
     <div id="detail-modal" class="detail-modal" aria-hidden="true">
       <div class="detail-backdrop" data-close-modal="true"></div>
       <article class="detail-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title">
-        <button id="close-modal" class="close-modal" type="button" aria-label="Close detail view">
-          &times;
-        </button>
-        <p id="detail-type" class="section-label"></p>
-        <h2 id="detail-title">Item title</h2>
-        <p id="detail-date" class="detail-meta"></p>
-        <p id="detail-time" class="detail-meta"></p>
-        <p id="detail-note" class="detail-note"></p>
-        <div class="detail-actions">
-          <button id="detail-toggle-task" class="secondary-button hidden" type="button">
-            Mark complete
+        <div class="detail-top-actions">
+          <button id="detail-send-item" class="secondary-button" type="button">
+            Send
+          </button>
+          <button id="detail-edit-item" class="secondary-button" type="button">
+            Edit
+          </button>
+          <button id="close-modal" class="close-modal" type="button" aria-label="Close detail view">
+            &times;
           </button>
         </div>
+        <div id="detail-view">
+          <p id="detail-type" class="section-label"></p>
+          <h2 id="detail-title">Item title</h2>
+          <p id="detail-date" class="detail-meta"></p>
+          <p id="detail-time" class="detail-meta"></p>
+          <p id="detail-note" class="detail-note"></p>
+          <div class="detail-actions">
+            <button id="detail-toggle-task" class="secondary-button hidden" type="button">
+              Mark complete
+            </button>
+            <button id="detail-delete-item" class="text-button detail-delete-button" type="button">
+              Delete item
+            </button>
+          </div>
+        </div>
+
+        <form id="detail-edit-form" class="item-form hidden">
+          <div class="input-row segmented">
+            <button type="button" class="detail-type-toggle type-toggle active" data-type="event">
+              Event
+            </button>
+            <button type="button" class="detail-type-toggle type-toggle" data-type="task">
+              Task
+            </button>
+          </div>
+
+          <label>
+            Title
+            <input
+              id="detail-title-input"
+              name="detail-title"
+              type="text"
+              maxlength="60"
+              placeholder="Team check-in"
+              required
+            />
+          </label>
+
+          <label>
+            Date
+            <input id="detail-date-input" name="detail-date" type="date" required />
+          </label>
+
+          <div class="time-row">
+            <label>
+              Start Time
+              <input id="detail-time-input" name="detail-time" type="time" />
+            </label>
+
+            <label>
+              End Time
+              <input id="detail-end-time-input" name="detail-end-time" type="time" />
+            </label>
+          </div>
+
+          <label>
+            Note
+            <textarea
+              id="detail-note-input"
+              name="detail-note"
+              rows="4"
+              maxlength="180"
+              placeholder="Add a small detail for everyone."
+            ></textarea>
+          </label>
+
+          <div class="detail-actions">
+            <button class="primary-button" type="submit">Save changes</button>
+            <button id="detail-cancel-edit" class="secondary-button" type="button">
+              Cancel
+            </button>
+          </div>
+        </form>
       </article>
     </div>
 
